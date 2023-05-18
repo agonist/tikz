@@ -17,12 +17,12 @@ const dbname = "hotel_reservation"
 const userCollection = "users"
 
 var config = fiber.Config{
-    ErrorHandler: func(ctx *fiber.Ctx, err error) error {
-        return ctx.JSON(map[string]string{"error": err.Error()})
-    },
+	ErrorHandler: func(ctx *fiber.Ctx, err error) error {
+		return ctx.JSON(map[string]string{"error": err.Error()})
+	},
 }
 
-func main(){
+func main() {
 	listenAddr := flag.String("listenAddr", ":5000", "The listen address of the API server")
 	flag.Parse()
 
@@ -34,11 +34,13 @@ func main(){
 	app := fiber.New(config)
 	apiV1 := app.Group("/api/v1")
 
-	userHandler := api.NewUserHandler(db.NewMongoUserStore(client))
+	userHandler := api.NewUserHandler(db.NewMongoUserStore(client, dbname))
 
 	apiV1.Post("/user", userHandler.HandlePostUser)
 	apiV1.Get("/user", userHandler.HandleListUsers)
-	apiV1.Get("user/:id", userHandler.HandleGetUser)
+	apiV1.Get("/user/:id", userHandler.HandleGetUser)
+	apiV1.Delete("/user/:id", userHandler.HandleDeleteUser)
+	apiV1.Put("/user/:id", userHandler.HandlePutUser)
 
 	app.Listen(*listenAddr)
 }
