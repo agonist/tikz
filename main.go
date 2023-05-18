@@ -1,20 +1,17 @@
 package main
 
 import (
-	"context"
 	"flag"
-	"log"
 
 	"github.com/agonist/hotel-reservation/api"
 	"github.com/agonist/hotel-reservation/db"
+	"github.com/agonist/hotel-reservation/types"
 	"github.com/gofiber/fiber/v2"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-const dburi = "mongodb://localhost:27017"
-const dbname = "hotel_reservation"
-const userCollection = "users"
+const dburi = "host=localhost user=admin password=supersecret dbname=ticketing port=5432 sslmode=disable"
 
 var config = fiber.Config{
 	ErrorHandler: func(ctx *fiber.Ctx, err error) error {
@@ -26,15 +23,12 @@ func main() {
 	listenAddr := flag.String("listenAddr", ":5000", "The listen address of the API server")
 	flag.Parse()
 
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(dburi))
-	if err != nil {
-		log.Fatal(err)
-	}
+	client := setupDb()
 
 	app := fiber.New(config)
 	apiV1 := app.Group("/api/v1")
 
-	userHandler := api.NewUserHandler(db.NewMongoUserStore(client, dbname))
+	userHandler := api.NewUserHandler(db.NewPgUserStore(client))
 
 	apiV1.Post("/user", userHandler.HandlePostUser)
 	apiV1.Get("/user", userHandler.HandleListUsers)
@@ -43,4 +37,18 @@ func main() {
 	apiV1.Put("/user/:id", userHandler.HandlePutUser)
 
 	app.Listen(*listenAddr)
+}
+
+func setupDb() *gorm.DB {
+	// dsn := os.Getenv("DB_DSN")
+	db, err := gorm.Open(postgres.Open(dburi), &gorm.Config{})
+	if err != nil {
+		panic("failed to connect to the db")
+	}
+	err = db.AutoMigrate(&types.User{})
+	if err != nil {
+		panic("failed ti run migrations")
+	}
+
+	return db
 }

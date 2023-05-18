@@ -1,116 +1,85 @@
 package db
 
 import (
-	"context"
-	"errors"
-	"fmt"
-
 	"github.com/agonist/hotel-reservation/types"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
+	"gorm.io/gorm"
 )
 
 const userColl = "users"
 
 type Dropper interface {
-	Drop(context.Context) error
+	Drop() error
 }
 
 type UserStore interface {
 	Dropper
 
-	GetUserByID(context.Context, string) (*types.User, error)
-	GetUsers(context.Context) ([]*types.User, error)
-	InsertUser(context.Context, *types.User) (*types.User, error)
-	DeleteUser(context.Context, string) error
-	UpdateUser(ctx context.Context, userId string, update types.UpdateUserParams) error
+	GetUserByID(int) (*types.User, error)
+	GetUsers() (*[]types.User, error)
+	InsertUser(*types.User) (*types.User, error)
+	DeleteUser(int) error
+	UpdateUser(userId int, update types.UpdateUserParams) error
 }
 
-type MongoUserStore struct {
-	client *mongo.Client
-	coll   *mongo.Collection
+type PgUserStore struct {
+	client *gorm.DB
 }
 
-func NewMongoUserStore(c *mongo.Client, dbname string) *MongoUserStore {
-	return &MongoUserStore{
+func NewPgUserStore(c *gorm.DB) *PgUserStore {
+	return &PgUserStore{
 		client: c,
-		coll:   c.Database(dbname).Collection(userColl),
 	}
 }
 
-func (s *MongoUserStore) Drop(ctx context.Context) error {
-	fmt.Println("--- dropping user collection")
-	return s.coll.Drop(ctx)
+func (s *PgUserStore) Drop() error {
+	s.client.Migrator().DropTable(&types.User{})
+	return nil
 }
 
-func (s *MongoUserStore) InsertUser(ctx context.Context, user *types.User) (*types.User, error) {
-	res, err := s.coll.InsertOne(ctx, user)
-	if err != nil {
-		return nil, err
+func (s *PgUserStore) InsertUser(user *types.User) (*types.User, error) {
+	res := s.client.Create(&user)
+	if res.Error != nil {
+		return nil, res.Error
 	}
-	user.ID = res.InsertedID.(primitive.ObjectID)
+
 	return user, nil
 }
 
-func (s *MongoUserStore) GetUserByID(ctx context.Context, id string) (*types.User, error) {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, err
-	}
-
+func (s *PgUserStore) GetUserByID(id int) (*types.User, error) {
 	var user types.User
-	if err := s.coll.FindOne(ctx, bson.M{"_id": oid}).Decode(&user); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, fmt.Errorf("user not found")
-		}
-		return nil, err
+
+	res := s.client.First(&user, id)
+	if res.Error != nil {
+		return nil, res.Error
 	}
 	return &user, nil
 }
 
-func (s *MongoUserStore) GetUsers(ctx context.Context) ([]*types.User, error) {
-	cur, err := s.coll.Find(ctx, bson.D{})
-	if err != nil {
-		return nil, err
+func (s *PgUserStore) GetUsers() (*[]types.User, error) {
+	var users []types.User
+
+	res := s.client.Find(&users)
+	if res.Error != nil {
+		return nil, res.Error
 	}
 
-	var users []*types.User
-	if err := cur.All(ctx, &users); err != nil {
-		return []*types.User{}, nil
-	}
-	return users, nil
+	return &users, nil
 }
 
-func (s *MongoUserStore) UpdateUser(ctx context.Context, userId string, params types.UpdateUserParams) error {
-	oid, err := primitive.ObjectIDFromHex(userId)
-	if err != nil {
-		return err
-	}
-	filter := bson.M{"_id": oid}
+func (s *PgUserStore) UpdateUser(userId int, params types.UpdateUserParams) error {
+	res := s.client.Model(&types.User{ID: uint(userId)}).Updates(params.ToMap())
 
-	update := bson.D{
-		{
-			Key: "$set", Value: params.ToBSON(),
-		},
-	}
-	_, err = s.coll.UpdateOne(ctx, filter, update)
-	if err != nil {
-		return err
+	if res.Error != nil {
+		return res.Error
 	}
 	return nil
 }
 
-func (s *MongoUserStore) DeleteUser(ctx context.Context, id string) error {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return err
-	}
+func (s *PgUserStore) DeleteUser(id int) error {
+	res := s.client.Delete(&types.User{}, id)
 
-	// TODO: maybe a god idea to handle if we not delete any user
-	_, err = s.coll.DeleteOne(ctx, bson.M{"_id": oid})
-	if err != nil {
-		return err
+	if res.Error != nil {
+		return res.Error
 	}
 	return nil
 }

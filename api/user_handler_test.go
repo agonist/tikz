@@ -2,9 +2,7 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
-	"log"
 	"net/http/httptest"
 	"testing"
 
@@ -12,30 +10,34 @@ import (
 	"github.com/agonist/hotel-reservation/types"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-const dburi = "mongodb://localhost:27017"
-const dbname = "hotel_reservation_test"
+const dburi = "host=localhost user=admin password=supersecret dbname=ticketing port=5432 sslmode=disable"
 
 type testdb struct {
 	db.UserStore
 }
 
 func (tdb *testdb) teardown(t *testing.T) {
-	if err := tdb.UserStore.Drop(context.TODO()); err != nil {
+	if err := tdb.UserStore.Drop(); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func setup(t *testing.T) *testdb {
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(dburi))
+	tdb, err := gorm.Open(postgres.Open(dburi), &gorm.Config{})
 	if err != nil {
-		log.Fatal(err)
+		panic("failed to connect to the db")
 	}
+	err = tdb.AutoMigrate(&types.User{})
+	if err != nil {
+		panic("failed ti run migrations")
+	}
+
 	return &testdb{
-		UserStore: db.NewMongoUserStore(client, dbname),
+		UserStore: db.NewPgUserStore(tdb),
 	}
 }
 

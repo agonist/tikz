@@ -1,12 +1,9 @@
 package api
 
 import (
-	"errors"
-
 	"github.com/agonist/hotel-reservation/db"
 	"github.com/agonist/hotel-reservation/types"
 	"github.com/gofiber/fiber/v2"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type UserHandler struct {
@@ -32,7 +29,7 @@ func (h *UserHandler) HandlePostUser(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	insertedUser, err := h.userStore.InsertUser(c.Context(), user)
+	insertedUser, err := h.userStore.InsertUser(user)
 	if err != nil {
 		return err
 	}
@@ -41,7 +38,7 @@ func (h *UserHandler) HandlePostUser(c *fiber.Ctx) error {
 
 func (h *UserHandler) HandleListUsers(c *fiber.Ctx) error {
 
-	users, err := h.userStore.GetUsers(c.Context())
+	users, err := h.userStore.GetUsers()
 	if err != nil {
 		return err
 	}
@@ -49,15 +46,13 @@ func (h *UserHandler) HandleListUsers(c *fiber.Ctx) error {
 }
 
 func (h *UserHandler) HandleGetUser(c *fiber.Ctx) error {
-	var (
-		id = c.Params("id")
-	)
-
-	user, err := h.userStore.GetUserByID(c.Context(), id)
+	userID, err := c.ParamsInt("id")
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return err
-		}
+		return err
+	}
+
+	user, err := h.userStore.GetUserByID(userID)
+	if err != nil {
 		return err
 	}
 
@@ -67,21 +62,27 @@ func (h *UserHandler) HandleGetUser(c *fiber.Ctx) error {
 func (h *UserHandler) HandlePutUser(c *fiber.Ctx) error {
 	var (
 		update types.UpdateUserParams
-		userID = c.Params("id")
 	)
+	userID, err := c.ParamsInt("id")
+	if err != nil {
+		return err
+	}
 
 	if err := c.BodyParser(&update); err != nil {
 		return err
 	}
-	if err := h.userStore.UpdateUser(c.Context(), userID, update); err != nil {
+	if err := h.userStore.UpdateUser(userID, update); err != nil {
 		return err
 	}
 	return c.JSON(fiber.Map{"updated": userID})
 }
 
 func (h *UserHandler) HandleDeleteUser(c *fiber.Ctx) error {
-	userID := c.Params("id")
-	if err := h.userStore.DeleteUser(c.Context(), userID); err != nil {
+	userID, err := c.ParamsInt("id")
+	if err != nil {
+		return err
+	}
+	if err := h.userStore.DeleteUser(userID); err != nil {
 		return err
 	}
 	return c.JSON(fiber.Map{"deleted": userID})
