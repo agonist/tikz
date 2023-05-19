@@ -2,46 +2,24 @@ package api
 
 import (
 	"bytes"
-	"encoding/json"
+	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/agonist/hotel-reservation/db"
 	"github.com/agonist/hotel-reservation/types"
-	"github.com/gofiber/fiber/v2"
+	"github.com/bytedance/sonic"
+	"github.com/bytedance/sonic/decoder"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
-const dburi = "host=localhost user=admin password=supersecret dbname=ticketing port=5432 sslmode=disable"
-
-type testdb struct {
-	db.UserStore
-}
-
-func (tdb *testdb) teardown(t *testing.T) {
-	if err := tdb.UserStore.Drop(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func setup(t *testing.T) *testdb {
-	tdb, err := gorm.Open(postgres.Open(dburi), &gorm.Config{})
-	if err != nil {
-		panic("failed to connect to the db")
-	}
-	err = tdb.AutoMigrate(&types.User{})
-	if err != nil {
-		panic("failed ti run migrations")
-	}
-
-	return &testdb{
-		UserStore: db.NewPgUserStore(tdb),
-	}
-}
-
 var (
+	userInvalid = types.CreateUserParams{
+		Email:     "somefoo.com",
+		FirstName: "J",
+		LastName:  "B",
+		Password:  "12",
+	}
 	user1 = types.CreateUserParams{
 		Email:     "some@foo.com",
 		FirstName: "John",
@@ -56,64 +34,124 @@ var (
 	}
 )
 
-func TestPostUser(t *testing.T) {
-	tdb := setup(t)
-	defer tdb.teardown(t)
-
-	app := fiber.New()
-	userHandler := NewUserHandler(tdb.UserStore)
-	app.Post("/", userHandler.HandlePostUser)
-
-	b, _ := json.Marshal(user1)
-	req := httptest.NewRequest("POST", "/", bytes.NewReader(b))
+func postUser(user types.CreateUserParams) *http.Request {
+	b, _ := sonic.Marshal(user)
+	req := httptest.NewRequest("POST", "/api/v1/user", bytes.NewReader(b))
 	req.Header.Add("Content-Type", "application/json")
-	resp, err := app.Test(req)
+	return req
+}
+
+func listAllUser() *http.Request {
+	req := httptest.NewRequest("GET", "/api/v1/user", nil)
+	req.Header.Add("Content-Type", "application/json")
+	return req
+}
+
+func getUserByID(id int) *http.Request {
+	req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/user/%d", id), nil)
+	req.Header.Add("Content-Type", "application/json")
+	return req
+}
+
+func deleteUser(id int) *http.Request {
+	req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/v1/user/%d", id), nil)
+	req.Header.Add("Content-Type", "application/json")
+	return req
+}
+
+func TestPostUser(t *testing.T) {
+	tc := setup(t)
+	defer tc.teardown(t)
+
+	resp, err := tc.app.Test(postUser(userInvalid))
+	if err != nil {
+		t.Error(err)
+	}
+
+	resp, err = tc.app.Test(postUser(user1))
 	if err != nil {
 		t.Error(err)
 	}
 
 	var user types.User
-	json.NewDecoder(resp.Body).Decode(&user)
+	decoder.NewStreamDecoder(resp.Body).Decode(&user)
 	assert.NotZero(t, user.ID, "ID should not be 0")
 	assert.Equal(t, user.Email, user1.Email, "email should be equal")
 	assert.Equal(t, user.FirstName, user1.FirstName, "firstName should be equal")
 	assert.Equal(t, user.LastName, user1.LastName, "lastName should be equal")
 }
 
-func TestListUSer(t *testing.T) {
-	tdb := setup(t)
-	defer tdb.teardown(t)
+func TestListUser(t *testing.T) {
+	tc := setup(t)
+	defer tc.teardown(t)
 
-	app := fiber.New()
-	userHandler := NewUserHandler(tdb.UserStore)
-	app.Post("/", userHandler.HandlePostUser)
-	app.Get("/", userHandler.HandleListUsers)
-
-	b, _ := json.Marshal(user1)
-	req := httptest.NewRequest("POST", "/", bytes.NewReader(b))
-	req.Header.Add("Content-Type", "application/json")
-	_, err := app.Test(req)
+	resp, err := tc.app.Test(postUser(user1))
 	if err != nil {
 		t.Error(err)
 	}
 
-	b, _ = json.Marshal(user2)
-	req = httptest.NewRequest("POST", "/", bytes.NewReader(b))
-	req.Header.Add("Content-Type", "application/json")
-	_, err = app.Test(req)
+	resp, err = tc.app.Test(postUser(user2))
 	if err != nil {
 		t.Error(err)
 	}
 
-	req = httptest.NewRequest("GET", "/", nil)
-	req.Header.Add("Content-Type", "application/json")
-	resp, err := app.Test(req)
+	resp, err = tc.app.Test(listAllUser())
 
 	if err != nil {
 		t.Error(err)
 	}
 
-	var user []types.User
-	json.NewDecoder(resp.Body).Decode(&user)
-	assert.Len(t, user, 2)
+	var users []types.User
+	decoder.NewStreamDecoder(resp.Body).Decode(&users)
+	assert.Len(t, users, 2)
+}
+
+func TestGetUserById(t *testing.T) {
+	tc := setup(t)
+	defer tc.teardown(t)
+
+	_, err := tc.app.Test(postUser(user1))
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = tc.app.Test(postUser(user2))
+	if err != nil {
+		t.Error(err)
+	}
+
+	resp, err := tc.app.Test(getUserByID(1))
+	if err != nil {
+		t.Error(err)
+	}
+
+	var user types.User
+	decoder.NewStreamDecoder(resp.Body).Decode(&user)
+	assert.NotZero(t, user.ID, "ID should not be 0")
+	assert.Equal(t, user.Email, user1.Email, "email should be equal")
+	assert.Equal(t, user.FirstName, user1.FirstName, "firstName should be equal")
+	assert.Equal(t, user.LastName, user1.LastName, "lastName should be equal")
+}
+
+func TestDeleteUser(t *testing.T) {
+	tc := setup(t)
+	defer tc.teardown(t)
+
+	_, err := tc.app.Test(postUser(user1))
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = tc.app.Test(deleteUser(1))
+	if err != nil {
+		t.Error(err)
+	}
+
+	resp, err := tc.app.Test(getUserByID(1))
+	if err != nil {
+		t.Error(err)
+	}
+	var e terr
+	decoder.NewStreamDecoder(resp.Body).Decode(&e)
+	assert.Equal(t, e.Msg, "User not found")
 }

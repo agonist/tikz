@@ -29,7 +29,7 @@ func (h *UserHandler) HandlePostUser(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	insertedUser, err := h.userStore.InsertUser(user)
+	insertedUser, err := h.userStore.Insert(user)
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func (h *UserHandler) HandlePostUser(c *fiber.Ctx) error {
 
 func (h *UserHandler) HandleListUsers(c *fiber.Ctx) error {
 
-	users, err := h.userStore.GetUsers()
+	users, err := h.userStore.GetAll()
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func (h *UserHandler) HandleGetUser(c *fiber.Ctx) error {
 		return err
 	}
 
-	user, err := h.userStore.GetUserByID(userID)
+	user, err := h.userStore.GetByID(userID)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func (h *UserHandler) HandlePutUser(c *fiber.Ctx) error {
 	if err := c.BodyParser(&update); err != nil {
 		return err
 	}
-	if err := h.userStore.UpdateUser(userID, update); err != nil {
+	if err := h.userStore.Update(userID, update); err != nil {
 		return err
 	}
 	return c.JSON(fiber.Map{"updated": userID})
@@ -82,7 +82,7 @@ func (h *UserHandler) HandleDeleteUser(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	if err := h.userStore.DeleteUser(userID); err != nil {
+	if err := h.userStore.Delete(userID); err != nil {
 		return err
 	}
 	return c.JSON(fiber.Map{"deleted": userID})

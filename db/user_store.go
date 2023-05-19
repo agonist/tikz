@@ -1,24 +1,22 @@
 package db
 
 import (
+	"errors"
+
 	"github.com/agonist/hotel-reservation/types"
 	"gorm.io/gorm"
 )
 
 const userColl = "users"
 
-type Dropper interface {
-	Drop() error
-}
-
 type UserStore interface {
 	Dropper
 
-	GetUserByID(int) (*types.User, error)
-	GetUsers() (*[]types.User, error)
-	InsertUser(*types.User) (*types.User, error)
-	DeleteUser(int) error
-	UpdateUser(userId int, update types.UpdateUserParams) error
+	GetByID(int) (*types.User, error)
+	GetAll() (*[]types.User, error)
+	Insert(*types.User) (*types.User, error)
+	Delete(int) error
+	Update(userId int, update types.UpdateUserParams) error
 }
 
 type PgUserStore struct {
@@ -36,7 +34,7 @@ func (s *PgUserStore) Drop() error {
 	return nil
 }
 
-func (s *PgUserStore) InsertUser(user *types.User) (*types.User, error) {
+func (s *PgUserStore) Insert(user *types.User) (*types.User, error) {
 	res := s.client.Create(&user)
 	if res.Error != nil {
 		return nil, res.Error
@@ -45,17 +43,20 @@ func (s *PgUserStore) InsertUser(user *types.User) (*types.User, error) {
 	return user, nil
 }
 
-func (s *PgUserStore) GetUserByID(id int) (*types.User, error) {
+func (s *PgUserStore) GetByID(id int) (*types.User, error) {
 	var user types.User
 
-	res := s.client.First(&user, id)
-	if res.Error != nil {
-		return nil, res.Error
+	if err := s.client.First(&user, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("User not found")
+		}
+		return nil, err
 	}
+
 	return &user, nil
 }
 
-func (s *PgUserStore) GetUsers() (*[]types.User, error) {
+func (s *PgUserStore) GetAll() (*[]types.User, error) {
 	var users []types.User
 
 	res := s.client.Find(&users)
@@ -66,7 +67,7 @@ func (s *PgUserStore) GetUsers() (*[]types.User, error) {
 	return &users, nil
 }
 
-func (s *PgUserStore) UpdateUser(userId int, params types.UpdateUserParams) error {
+func (s *PgUserStore) Update(userId int, params types.UpdateUserParams) error {
 	res := s.client.Model(&types.User{ID: uint(userId)}).Updates(params.ToMap())
 
 	if res.Error != nil {
@@ -75,7 +76,7 @@ func (s *PgUserStore) UpdateUser(userId int, params types.UpdateUserParams) erro
 	return nil
 }
 
-func (s *PgUserStore) DeleteUser(id int) error {
+func (s *PgUserStore) Delete(id int) error {
 	res := s.client.Delete(&types.User{}, id)
 
 	if res.Error != nil {
