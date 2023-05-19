@@ -78,12 +78,12 @@ func (h *OrganizationHandler) HandlePut(c *fiber.Ctx) error {
 }
 
 func (h *OrganizationHandler) HandleDelete(c *fiber.Ctx) error {
-	userID, err := c.ParamsInt("id")
+	orgID, err := c.ParamsInt("id")
 	if err != nil {
 		return err
 	}
-	if err := h.orgStore.Delete(userID); err != nil {
+	if err := h.orgStore.Delete(orgID); err != nil {
 		return err
 	}
-	return c.JSON(fiber.Map{"deleted": userID})
+	return c.JSON(fiber.Map{"deleted": orgID})
 }

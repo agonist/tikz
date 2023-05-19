@@ -33,6 +33,7 @@ func main() {
 
 	userHandler := api.NewUserHandler(db.NewPgUserStore(client))
 	orgHandler := api.NewOrgHandler(db.NewPgOrgStore(client))
+	eventHandler := api.NewEventHandler(db.NewPgEventStore(client))
 
 	apiV1.Post("/user", userHandler.HandlePostUser)
 	apiV1.Get("/user", userHandler.HandleListUsers)
@@ -41,10 +42,16 @@ func main() {
 	apiV1.Put("/user/:id", userHandler.HandlePutUser)
 
 	apiV1.Post("/organization", orgHandler.HandlePost)
-	apiV1.Get("/ogrganization", orgHandler.HandleList)
+	apiV1.Get("/organization", orgHandler.HandleList)
 	apiV1.Get("/organization/:id", orgHandler.HandleGet)
 	apiV1.Delete("/organization/:id", orgHandler.HandleDelete)
 	apiV1.Put("/organization/:id", orgHandler.HandlePut)
+
+	apiV1.Post("/event", eventHandler.HandlePost)
+	apiV1.Get("/event", eventHandler.HandleList)
+	apiV1.Get("/event/:id", eventHandler.HandleGet)
+	apiV1.Delete("/event/:id", eventHandler.HandleDelete)
+	apiV1.Put("/event/:id", eventHandler.HandlePut)
 
 	app.Listen(*listenAddr)
 }
