@@ -13,6 +13,7 @@ type UserStore interface {
 	Dropper
 
 	GetByID(int) (*types.User, error)
+	GetByEmail(string) (*types.User, error)
 	GetAll() (*[]types.User, error)
 	Insert(*types.User) (*types.User, error)
 	Delete(int) error
@@ -47,6 +48,19 @@ func (s *PgUserStore) GetByID(id int) (*types.User, error) {
 	var user types.User
 
 	if err := s.client.First(&user, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("User not found")
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (s *PgUserStore) GetByEmail(email string) (*types.User, error) {
+	var user types.User
+
+	if err := s.client.Where("email = ?", email).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("User not found")
 		}

@@ -7,12 +7,12 @@ import (
 )
 
 type OrganizationHandler struct {
-	orgStore db.OrgStore
+	s *db.Store
 }
 
-func NewOrgHandler(orgStore db.OrgStore) *OrganizationHandler {
+func NewOrgHandler(store *db.Store) *OrganizationHandler {
 	return &OrganizationHandler{
-		orgStore: orgStore,
+		s: store,
 	}
 }
 
@@ -29,7 +29,7 @@ func (h *OrganizationHandler) HandlePost(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	insertedOrg, err := h.orgStore.Insert(org)
+	insertedOrg, err := h.s.Org.Insert(org)
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func (h *OrganizationHandler) HandlePost(c *fiber.Ctx) error {
 
 func (h *OrganizationHandler) HandleList(c *fiber.Ctx) error {
 
-	orgs, err := h.orgStore.GetAll()
+	orgs, err := h.s.Org.GetAll()
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func (h *OrganizationHandler) HandleGet(c *fiber.Ctx) error {
 		return err
 	}
 
-	org, err := h.orgStore.GetByID(orgID)
+	org, err := h.s.Org.GetByID(orgID)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func (h *OrganizationHandler) HandlePut(c *fiber.Ctx) error {
 	if err := c.BodyParser(&update); err != nil {
 		return err
 	}
-	if err := h.orgStore.Update(orgID, update); err != nil {
+	if err := h.s.Org.Update(orgID, update); err != nil {
 		return err
 	}
 	return c.JSON(fiber.Map{"updated": orgID})
@@ -82,7 +82,7 @@ func (h *OrganizationHandler) HandleDelete(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	if err := h.orgStore.Delete(orgID); err != nil {
+	if err := h.s.Org.Delete(orgID); err != nil {
 		return err
 	}
 	return c.JSON(fiber.Map{"deleted": orgID})

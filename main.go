@@ -5,6 +5,7 @@ import (
 
 	"github.com/agonist/hotel-reservation/api"
 	"github.com/agonist/hotel-reservation/db"
+	"github.com/agonist/hotel-reservation/middleware"
 	"github.com/agonist/hotel-reservation/types"
 	"github.com/bytedance/sonic"
 	"github.com/gofiber/fiber/v2"
@@ -29,11 +30,26 @@ func main() {
 	client := setupDb()
 
 	app := fiber.New(config)
-	apiV1 := app.Group("/api/v1")
 
-	userHandler := api.NewUserHandler(db.NewPgUserStore(client))
-	orgHandler := api.NewOrgHandler(db.NewPgOrgStore(client))
-	eventHandler := api.NewEventHandler(db.NewPgEventStore(client))
+	var (
+		userStore  = db.NewPgUserStore(client)
+		orgStore   = db.NewPgOrgStore(client)
+		eventStore = db.NewPgEventStore(client, orgStore)
+		store      = db.Store{
+			User:  userStore,
+			Org:   orgStore,
+			Event: eventStore,
+		}
+		authHandler  = api.NewAuthHandler(&store)
+		userHandler  = api.NewUserHandler(&store)
+		orgHandler   = api.NewOrgHandler(&store)
+		eventHandler = api.NewEventHandler(&store)
+		apiV1noAuth  = app.Group("/api/")
+		apiV1        = app.Group("/api/v1", middleware.JWTAuthentication)
+	)
+
+	apiV1noAuth.Post("/auth/signin", authHandler.HandleAuthenticate)
+	apiV1noAuth.Post("/auth/signup", authHandler.HandleRegister)
 
 	apiV1.Post("/user", userHandler.HandlePostUser)
 	apiV1.Get("/user", userHandler.HandleListUsers)
@@ -64,7 +80,7 @@ func setupDb() *gorm.DB {
 	}
 	err = db.AutoMigrate(&types.User{})
 	if err != nil {
-		panic("failed ti run migrations")
+		panic("failed to run migrations")
 	}
 
 	return db

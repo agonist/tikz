@@ -7,12 +7,12 @@ import (
 )
 
 type EventHandler struct {
-	eventStore db.EventStore
+	s *db.Store
 }
 
-func NewEventHandler(eventStore db.EventStore) *EventHandler {
+func NewEventHandler(store *db.Store) *EventHandler {
 	return &EventHandler{
-		eventStore: eventStore,
+		s: store,
 	}
 }
 
@@ -29,7 +29,7 @@ func (h *EventHandler) HandlePost(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	insertedEvent, err := h.eventStore.Insert(event)
+	insertedEvent, err := h.s.Event.Insert(event)
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func (h *EventHandler) HandlePost(c *fiber.Ctx) error {
 
 func (h *EventHandler) HandleList(c *fiber.Ctx) error {
 
-	events, err := h.eventStore.GetAll()
+	events, err := h.s.Event.GetAll()
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func (h *EventHandler) HandleGet(c *fiber.Ctx) error {
 		return err
 	}
 
-	event, err := h.eventStore.GetByID(eventID)
+	event, err := h.s.Event.GetByID(eventID)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func (h *EventHandler) HandlePut(c *fiber.Ctx) error {
 	if err := c.BodyParser(&update); err != nil {
 		return err
 	}
-	if err := h.eventStore.Update(eventID, update); err != nil {
+	if err := h.s.Event.Update(eventID, update); err != nil {
 		return err
 	}
 	return c.JSON(fiber.Map{"updated": eventID})
@@ -82,7 +82,7 @@ func (h *EventHandler) HandleDelete(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	if err := h.eventStore.Delete(eventID); err != nil {
+	if err := h.s.Event.Delete(eventID); err != nil {
 		return err
 	}
 	return c.JSON(fiber.Map{"deleted": eventID})

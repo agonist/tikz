@@ -51,10 +51,18 @@ func setup(t *testing.T) *tc {
 	apiV1 := app.Group("/api/v1")
 
 	userStore := db.NewPgUserStore(tdb)
-	userHandler := NewUserHandler(userStore)
-
 	orgStore := db.NewPgOrgStore(tdb)
-	orgHandler := NewOrgHandler(orgStore)
+	eventStore := db.NewPgEventStore(tdb, orgStore)
+
+	store := db.Store{
+		User:  userStore,
+		Org:   orgStore,
+		Event: eventStore,
+	}
+
+	userHandler := NewUserHandler(&store)
+	orgHandler := NewOrgHandler(&store)
+	eventHandler := NewEventHandler(&store)
 
 	apiV1.Post("/user", userHandler.HandlePostUser)
 	apiV1.Get("/user", userHandler.HandleListUsers)
@@ -67,6 +75,12 @@ func setup(t *testing.T) *tc {
 	apiV1.Get("/organization/:id", orgHandler.HandleGet)
 	apiV1.Delete("/organization/:id", orgHandler.HandleDelete)
 	apiV1.Put("/organization/:id", orgHandler.HandlePut)
+
+	apiV1.Post("/event", eventHandler.HandlePost)
+	apiV1.Get("/event", eventHandler.HandleList)
+	apiV1.Get("/event/:id", eventHandler.HandleGet)
+	apiV1.Delete("/event/:id", eventHandler.HandleDelete)
+	apiV1.Put("/event/:id", eventHandler.HandlePut)
 
 	return &tc{
 		userStore: userStore,

@@ -31,12 +31,13 @@ type Event struct {
 }
 
 type CreateEventParams struct {
-	Name        string    `json:"name"`
-	Type        EventType `json:"type"`
-	StartDate   time.Time `json:"startDate"`
-	EndDate     time.Time `json:"endDate"`
-	CountryCode string    `json:"countryCode"`
-	City        string    `json:"city"`
+	Name           string    `json:"name"`
+	Type           EventType `json:"type"`
+	StartDate      time.Time `json:"startDate"`
+	EndDate        time.Time `json:"endDate"`
+	CountryCode    string    `json:"countryCode"`
+	City           string    `json:"city"`
+	OrganizationID uint      `json:"organisationID"`
 }
 
 type UpdateEventParams struct {
@@ -68,11 +69,12 @@ func (p UpdateEventParams) ToMap() map[string]interface{} {
 
 func NewEventFromParams(params CreateEventParams) (*Event, error) {
 	return &Event{
-		Name:        params.Name,
-		Type:        params.Type,
-		StartDate:   params.StartDate,
-		EndDate:     params.EndDate,
-		CountryCode: params.CountryCode,
-		City:        params.City,
+		Name:           params.Name,
+		Type:           params.Type,
+		StartDate:      params.StartDate,
+		EndDate:        params.EndDate,
+		CountryCode:    params.CountryCode,
+		City:           params.City,
+		OrganizationID: uint(params.OrganizationID),
 	}, nil
 }

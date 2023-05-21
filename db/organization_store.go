@@ -44,7 +44,7 @@ func (s *PgOrgStore) Insert(org *types.Organization) (*types.Organization, error
 func (s *PgOrgStore) GetByID(id int) (*types.Organization, error) {
 	var org types.Organization
 
-	res := s.client.First(&org, id)
+	res := s.client.Preload("Events").First(&org, id)
 	if res.Error != nil {
 		return nil, res.Error
 	}
@@ -54,7 +54,7 @@ func (s *PgOrgStore) GetByID(id int) (*types.Organization, error) {
 func (s *PgOrgStore) GetAll() (*[]types.Organization, error) {
 	var orgs []types.Organization
 
-	res := s.client.Find(&orgs)
+	res := s.client.Preload("Events").Find(&orgs)
 	if res.Error != nil {
 		return nil, res.Error
 	}

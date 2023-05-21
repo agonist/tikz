@@ -12,18 +12,20 @@ type EventStore interface {
 
 	GetByID(int) (*types.Event, error)
 	GetAll() (*[]types.Event, error)
-	Insert(*types.Event) (*types.Event, error)
+	Insert(event *types.Event) (*types.Event, error)
 	Delete(int) error
 	Update(eventID int, updated types.UpdateEventParams) error
 }
 
 type PgEventStore struct {
-	client *gorm.DB
+	client   *gorm.DB
+	orgStore OrgStore
 }
 
-func NewPgEventStore(c *gorm.DB) *PgEventStore {
+func NewPgEventStore(c *gorm.DB, orgStore OrgStore) *PgEventStore {
 	return &PgEventStore{
-		client: c,
+		client:   c,
+		orgStore: orgStore,
 	}
 }
 
@@ -37,7 +39,12 @@ func (s *PgEventStore) Insert(event *types.Event) (*types.Event, error) {
 	if res.Error != nil {
 		return nil, res.Error
 	}
-
+	org, err := s.orgStore.GetByID(int(event.OrganizationID))
+	if err != nil {
+		return nil, err
+	}
+	org.Events = append(org.Events, *event)
+	s.client.Save(org)
 	return event, nil
 }
 

@@ -92,4 +92,21 @@ func main() {
 	if res.Error != nil {
 		fmt.Errorf(res.Error.Error())
 	}
+
+	e2 := types.Event{
+		Name:           "Modem Festival London Teaser",
+		Type:           types.PartyEventType,
+		StartDate:      time.Now(),
+		EndDate:        time.Now().Add(time.Hour * 24),
+		CountryCode:    "UK",
+		City:           "London",
+		OrganizationID: organization1.ID,
+	}
+	res = db.Create(&e2)
+	if res.Error != nil {
+		fmt.Errorf(res.Error.Error())
+	}
+
+	organization1.Events = append(organization1.Events, e2)
+	db.Save(&organization1)
 }
